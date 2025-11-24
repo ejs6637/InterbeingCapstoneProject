@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 632d0d6cfcf7e5244af42f0ab4ad731c
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - FlatCursorSprite: {fileID: 21300000, guid: 1bd8176a0a7b2df48bde494a3e0a57bf, type: 3}
+  - SingleInclinedCursorSprite: {instanceID: 0}
+  - DoubleInclinedCursorSprite: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
