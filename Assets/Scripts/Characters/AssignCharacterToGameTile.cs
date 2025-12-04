@@ -1,23 +1,34 @@
-using UnityEngine;
+﻿using UnityEngine;
+using UnityEngine.Tilemaps;
 
-/// <summary>
-/// Script to attach to a Character to the GameTile it's standing on once enabled, then destroys itself
-/// </summary>
 public class AssignCharacterToGameTile : MonoBehaviour
 {
+    public Tilemap gridTilemap; // Assign in Inspector
+
     void Start()
     {
-        GameObject visibleHitGameTile = GameTileFunctions.GetGameTileFromPositionalRaycast(this.transform.position);
+        Vector3Int cellPos = gridTilemap.WorldToCell(transform.position);
+        TileBase tile = gridTilemap.GetTile(cellPos);
 
-        if (visibleHitGameTile != null)
+        if (tile != null)
         {
-            this.gameObject.transform.position = CharacterFunctions.GetCharacterPositionOnGameTile(visibleHitGameTile);
-            visibleHitGameTile.GetComponent<GameTile>().OccupyingCharacter = this.gameObject;
+            GameObject tileObj = GameTileTracker.Instance.GetTileObjectAtCell(cellPos);
+
+            if (tileObj != null)
+            {
+                transform.position = CharacterFunctions.GetCharacterPositionOnGameTile(tileObj);
+                tileObj.GetComponent<GameTile>().OccupyingCharacter = this.gameObject;
+            }
+            else
+            {
+                Debug.LogError($"Tile exists but no GameTile object found at cell {cellPos}");
+            }
         }
         else
-            Debug.LogError($"No GameTile found beneath Character {this.gameObject.name}");
+        {
+            Debug.LogError($"No Tile detected under {gameObject.name} at {cellPos}");
+        }
 
-        //Self-Destruct once complete
         Destroy(this);
     }
 }

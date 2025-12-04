@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Tilemaps;
 
 /// <summary>
@@ -21,6 +21,12 @@ public class GameTile : MonoBehaviour
     public int CellPositionY;
     [HideInInspector]
     public int CellPositionZ;
+
+    // Add property
+    public Vector3Int CellPosition
+    {
+        get { return new Vector3Int(CellPositionX, CellPositionY, CellPositionZ); }
+    }
 
     public int InclineGameHeight { get { return GameTileType.InclineGameHeight; } }
     public int MovementCost { get { return GameTileType.MovementCost; } }

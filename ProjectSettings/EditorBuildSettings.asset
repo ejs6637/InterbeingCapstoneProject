@@ -5,9 +5,21 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/SampleScene.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
+  - enabled: 0
+    path: Assets/Scenes/StartupLoader.unity
+    guid: 71f12b87674ad72438bbf1a75c8ca288
+  - enabled: 1
+    path: Assets/Scenes/InterbeingStartupLoader.unity
+    guid: d7922986a120c1c4482c612713bc0ef2
+  - enabled: 1
+    path: Assets/Scenes/InterbeingMainMenu.unity
+    guid: 48e334de817143a4db6859d1c68c64e1
+  - enabled: 1
+    path: Assets/Scenes/InterbeingBattlefield.unity
+    guid: 1ad06173760ebcb478748592dc0f150d
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

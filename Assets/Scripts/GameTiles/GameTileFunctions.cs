@@ -238,4 +238,19 @@ public static class GameTileFunctions
         SpriteRenderer spriteRenderer = GameTileGameObject.GetComponent<SpriteRenderer>();
         spriteRenderer.enabled = false;
     }
+
+
+    public static GameObject GetRandomWalkableTile(Dictionary<Vector2Int, GameObject> gameTileDictionary)
+    {
+        List<GameObject> walkableTiles = new List<GameObject>();
+        foreach (var tileObj in gameTileDictionary.Values)
+        {
+            GameTile tile = tileObj.GetComponent<GameTile>();
+            if (tile != null && tile.OccupyingCharacter == null)
+                walkableTiles.Add(tileObj);
+        }
+
+        if (walkableTiles.Count == 0) return null;
+        return walkableTiles[Random.Range(0, walkableTiles.Count)];
+    }
 }

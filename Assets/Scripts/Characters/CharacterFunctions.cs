@@ -6,21 +6,11 @@ using UnityEngine;
 /// </summary>
 public static class CharacterFunctions
 {
-    /// <summary>
-    /// Changes the animation clip played for the character object
-    /// </summary>
-    /// <param name="newAnimationState">The new animation clip to be played</param>
-    /// <param name="characterGameData">The game data component of the character game object</param>
     public static void ChangeAnimationState(string newAnimationState, CharacterGameData characterGameData)
     {
         characterGameData.CharacterAnimator.SetTrigger(newAnimationState);
     }
 
-    /// <summary>
-    /// Changes the orientation of the character and their correspoding sprite
-    /// </summary>
-    /// <param name="newOrientation">The new orientation for the character to look at</param>
-    /// <param name="characterGameData">The game data component of the character game object</param>
     public static void ChangeOrientation(CharacterDirectionFacing newOrientation, CharacterGameData characterGameData)
     {
         switch (newOrientation)
@@ -49,41 +39,23 @@ public static class CharacterFunctions
         characterGameData.DirectionFaced = newOrientation;
     }
 
-    /// <summary>
-    /// Orientation calculator based on the Vector2Int parameters of an origin and destination game tile
-    /// </summary>
-    /// <param name="originCoordinates">Vector2Int coordinates where the character is</param>
-    /// <param name="destinationCoordinates">Vector2Int coordinates where the character is looking at</param>
-    /// <returns>CharacterDirectionFacing of the orientation towards the destination game tile</returns>
     public static CharacterDirectionFacing DetermineOrientation(Vector2Int originCoordinates, Vector2Int destinationCoordinates)
     {
-        //Prioritize Down or Left if tiles are exactly diagonal with early exit
-        if (destinationCoordinates.x - originCoordinates.x < 0 && Math.Abs(destinationCoordinates.x - originCoordinates.x)
-            >= Math.Abs(destinationCoordinates.y - originCoordinates.y))    //Down & Left
-        {
+        if (destinationCoordinates.x - originCoordinates.x < 0 &&
+            Math.Abs(destinationCoordinates.x - originCoordinates.x) >= Math.Abs(destinationCoordinates.y - originCoordinates.y))
             return CharacterDirectionFacing.FrontLeft;
-        }
-        else if (destinationCoordinates.y - originCoordinates.y < 0 && Math.Abs(destinationCoordinates.x - originCoordinates.x)
-            <= Math.Abs(destinationCoordinates.y - originCoordinates.y))    //Down & Right
-        {
+
+        if (destinationCoordinates.y - originCoordinates.y < 0 &&
+            Math.Abs(destinationCoordinates.x - originCoordinates.x) <= Math.Abs(destinationCoordinates.y - originCoordinates.y))
             return CharacterDirectionFacing.FrontRight;
-        }
-        else if (destinationCoordinates.y - originCoordinates.y > 0 && Math.Abs(destinationCoordinates.x - originCoordinates.x)
-            <= Math.Abs(destinationCoordinates.y - originCoordinates.y))    //Up & Left
-        {
+
+        if (destinationCoordinates.y - originCoordinates.y > 0 &&
+            Math.Abs(destinationCoordinates.x - originCoordinates.x) <= Math.Abs(destinationCoordinates.y - originCoordinates.y))
             return CharacterDirectionFacing.BackLeft;
-        }
-        else                                                                //Up & Right
-        {
-            return CharacterDirectionFacing.BackRight;
-        }
+
+        return CharacterDirectionFacing.BackRight;
     }
 
-    /// <summary>
-    /// Gets the Vector3 position a character should be at to render correctly over a GameTile
-    /// </summary>
-    /// <param name="GameTile">Game Tile GameObject the character is to stand on</param>
-    /// <returns>The Vector3 Position for characters to the linked tile</returns>
     public static Vector3 GetCharacterPositionOnGameTile(GameObject GameTile)
     {
         GameTile gameTileComponent = GameTile.GetComponent<GameTile>();
@@ -92,6 +64,59 @@ public static class CharacterFunctions
             GameTile.transform.position.x,
             GameTile.transform.position.y - ((float)gameTileComponent.InclineGameHeight / Constants.PixelPerGameUnitHeight),
             GameTile.transform.position.z - ((float)gameTileComponent.InclineGameHeight / 2) + 0.75f);
-        //Pad Character object so it renders on top of the cursor and tile
+    }
+
+    // Battle
+    public static void Attack(CharacterStateManager attacker, GameObject target)
+    {
+        if (target == null) return;
+
+        CharacterGameData targetData = target.GetComponent<CharacterGameData>();
+        if (targetData == null)
+        {
+            Debug.LogWarning("Target does not have CharacterGameData!");
+            return;
+        }
+
+        targetData.Health -= attacker.CharacterData.AttackPower;
+
+        ChangeAnimationState(Constants.SwordSwing, attacker.CharacterData);
+
+        if (targetData.Health <= 0)
+        {
+            targetData.IsDowned = true;
+            ChangeAnimationState(Constants.Downed, targetData);
+        }
+        else if (targetData.Health <= targetData.MaxHealth * 2f / 3f)
+        {
+            targetData.IsInjured = true;
+            ChangeAnimationState(Constants.Injured, targetData);
+        }
+    }
+
+    public static GameObject FindAdjacentEnemy(CharacterStateManager character)
+    {
+        Vector3Int pos = character.MoveDestination;
+        GameTileTracker tracker = character.GameTileTracker;
+
+        GameTile[] adjacentTiles = new GameTile[]
+        {
+            tracker.GetTileAt(pos + new Vector3Int(0, 1, 0)),
+            tracker.GetTileAt(pos + new Vector3Int(0, -1, 0)),
+            tracker.GetTileAt(pos + new Vector3Int(1, 0, 0)),
+            tracker.GetTileAt(pos + new Vector3Int(-1, 0, 0))
+        };
+
+        foreach (var tile in adjacentTiles)
+        {
+            if (tile != null && tile.OccupyingCharacter != null)
+            {
+                CharacterGameData data = tile.OccupyingCharacter.GetComponent<CharacterGameData>();
+                if (data.Team != character.CharacterData.Team)
+                    return tile.OccupyingCharacter;
+            }
+        }
+
+        return null;
     }
 }

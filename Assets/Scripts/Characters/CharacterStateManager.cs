@@ -1,134 +1,187 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Manager Class of the State Machine for Characters
-/// Attached to a Character Game Object with the CharacterGameData Component
-/// </summary>
 public class CharacterStateManager : MonoBehaviour
 {
-    [HideInInspector]
-    public CharacterGameData CharacterData;
+    [HideInInspector] public CharacterGameData CharacterData;
 
-    CharacterBaseState CharacterState;
+    [Header("UI")]
+    public GameObject CharacterUI; // assign this in the Inspector
+
+    protected CharacterBaseState CharacterState;
     public CharacterIdleState Idle = new CharacterIdleState();
     public CharacterWalkState Walk = new CharacterWalkState();
     public CharacterLeapState Leap = new CharacterLeapState();
+    public CharacterDownedState Downed = new CharacterDownedState();
 
-    //Used for movement reference in states
-    [HideInInspector]
-    public GameTileTracker GameTileTracker;
-    [HideInInspector]
-    public Vector3Int MoveOrigin;
-    [HideInInspector]
-    public Vector3Int MoveDestination;
-    [HideInInspector]
-    public Vector3 MoveDestinationPosition;
-    [HideInInspector]
-    public float DestinationZMultiplier;
+    [HideInInspector] public GameTileTracker GameTileTracker;
+    [HideInInspector] public Vector3Int MoveOrigin;
+    [HideInInspector] public Vector3Int MoveDestination;
+    [HideInInspector] public Vector3 MoveDestinationPosition;
+    [HideInInspector] public float DestinationZMultiplier;
     public LinkedList<GameObject> RemainingDestinationWaypoints = new LinkedList<GameObject>();
 
-    void Start()
+    protected virtual void Start()
     {
-        GameTileTracker = GameObject.FindGameObjectWithTag(Constants.TilemapTag).GetComponent<GameTileTracker>();
-        if (GameTileTracker == null)
-            Debug.LogError("No GameTileTracker component attached to the Tilemap!");
-
-        CharacterData = this.gameObject.GetComponent<CharacterGameData>();
-        if (CharacterData == null)
-            Debug.LogError("No paired CharacterGameData attached to Character!");
-
+        GameTileTracker = GameObject.FindGameObjectWithTag(Constants.TilemapTag)
+            .GetComponent<GameTileTracker>();
+        CharacterData = GetComponent<CharacterGameData>();
         CharacterState = Idle;
-        CharacterData.AnimatorState = Constants.Idle;
         CharacterState.Start(this);
+
+        // Hide UI at start; TurnManager will show only active character's UI
+        if (CharacterUI != null)
+            CharacterUI.SetActive(false);
     }
 
     void Update()
     {
-        CharacterState.Update(this);
+        if (CharacterState != null)
+            CharacterState.Update(this);
     }
 
-    /// <summary>
-    /// Called to alter the Character State and start its sequence
-    /// </summary>
-    /// <param name="NewState">The new character state for the manager to enter</param>
+
+    // turns
+    public virtual void StartTurn()
+    {
+        if (CharacterData.IsDowned)
+        {
+            EndTurn();
+            return;
+        }
+
+        // Enable this character's UI when their turn starts
+        if (CharacterUI != null)
+            CharacterUI.SetActive(true);
+
+        UpdateIdleSprite();
+        HighlightMovableTiles();
+        EnableMovementInput();
+    }
+
+    public virtual void EndTurn()
+    {
+        // Hide this character's UI when their turn ends
+        if (CharacterUI != null)
+            CharacterUI.SetActive(false);
+
+        ClearHighlights();
+        TurnManager.Instance.EndActionPhase(this);
+    }
+
+    public virtual void EndMovement()
+    {
+        DisableMovementInput();
+        TurnManager.Instance.EndMovementPhase(this);
+    }
+
+    public virtual void StartActionPhase()
+    {
+        ActionMenuUI.Instance.ShowMenu(this);
+    }
+
+    public void SetActionPhase()
+    {
+        if (CharacterData.Team == CharacterTeam.Player)
+            CharacterData.CharacterActive = true; // enable player action
+    }
+
+    public void PerformAttack()
+    {
+        GameObject enemy = CharacterFunctions.FindAdjacentEnemy(this);
+        if (enemy != null)
+            CharacterFunctions.Attack(this, enemy);
+        EndTurn();
+    }
+
+    public void Wait()
+    {
+        EndTurn();
+    }
+
+    // movement
     public void ChangeState(CharacterBaseState NewState)
     {
         CharacterState = NewState;
-        CharacterState.Start(this); //Call Start before next update
+        CharacterState.Start(this);
     }
 
-    /// <summary>
-    /// First call to state manager to make a unit move to a destination from where it is currently
-    /// </summary>
-    /// <param name="DestinationGameTileObject">The game tile that needs to be reached</param>
     public void StartMoveSequence(GameObject DestinationGameTileObject)
     {
-        //Prepare Travel Waypoints
         GameObject TileToEnqueue = DestinationGameTileObject;
-        for (int i = 0; i < CharacterData.Movement + 1; i++) //Maximum travel distance possible
+        for (int i = 0; i < CharacterData.Movement + 1; i++)
         {
-            if (GameTileTracker.DestinationPathfindingMap[TileToEnqueue] == null)
-                break;
+            if (GameTileTracker.DestinationPathfindingMap[TileToEnqueue] == null) break;
             RemainingDestinationWaypoints.AddFirst(TileToEnqueue);
             TileToEnqueue = GameTileTracker.DestinationPathfindingMap[TileToEnqueue];
-            //if (i == CharacterData.Movement)
-            //    Debug.LogError("Character's movement exceeded when preparing travel waypoints!");
         }
 
         GameTile FirstOrigin = TileToEnqueue.GetComponent<GameTile>();
-
-        //Recouple character from origin to destination game tile
         FirstOrigin.OccupyingCharacter = null;
         DestinationGameTileObject.GetComponent<GameTile>().OccupyingCharacter = gameObject;
 
-        //This will be moved into MoveOrigin when MoveToNextWaypoint runs
         MoveDestination = new Vector3Int(FirstOrigin.CellPositionX, FirstOrigin.CellPositionY, FirstOrigin.CellPositionZ);
         MoveToNextWaypoint();
     }
 
-    /// <summary>
-    /// Determine the next state needed for the next waypoint and change to it, and refreshes the relevant variables
-    /// </summary>
     public void MoveToNextWaypoint()
     {
         if (RemainingDestinationWaypoints.Count == 0)
         {
-            //On Move finish, return to Idle
+            UpdateIdleSprite();
             ChangeState(Idle);
             return;
         }
 
         GameTile NextDestination = RemainingDestinationWaypoints.First.Value.GetComponent<GameTile>();
-
         MoveOrigin = MoveDestination;
         MoveDestination = new Vector3Int(NextDestination.CellPositionX, NextDestination.CellPositionY, NextDestination.CellPositionZ);
         MoveDestinationPosition = CharacterFunctions.GetCharacterPositionOnGameTile(RemainingDestinationWaypoints.First.Value);
-        DestinationZMultiplier = 1 + Mathf.Abs(gameObject.transform.position.z - MoveDestinationPosition.z);
+        DestinationZMultiplier = 1 + Mathf.Abs(transform.position.z - MoveDestinationPosition.z);
 
-        //Remove first destination once set
         RemainingDestinationWaypoints.RemoveFirst();
 
-        //If the x or y difference is greater than 1 tile, then we can only be leaping
         if (Mathf.Abs(MoveDestination.x - MoveOrigin.x) > 1 || Mathf.Abs(MoveDestination.y - MoveOrigin.y) > 1)
-        {
             ChangeState(Leap);
-        }
         else
         {
-            //Otherwise use z to determine which animation to use between Leap and Walk
             switch (MoveDestination.z - MoveOrigin.z)
             {
-                case > 1: //Jump Up
-                    ChangeState(Leap);
-                    break;
-                case <= 1 and >= -1: //Walk
-                    ChangeState(Walk);
-                    break;
-                case < -1: //Leap (Jump Down)
-                    ChangeState(Leap);
-                    break;
+                case > 1: ChangeState(Leap); break;
+                case <= 1 and >= -1: ChangeState(Walk); break;
+                case < -1: ChangeState(Leap); break;
             }
         }
+    }
+
+    // misc.
+    private void UpdateIdleSprite()
+    {
+        if (CharacterData.IsDowned)
+            ChangeState(Downed);
+        else if (CharacterData.IsInjured)
+            CharacterFunctions.ChangeAnimationState(Constants.Injured, CharacterData);
+        else
+            CharacterFunctions.ChangeAnimationState(Constants.Idle, CharacterData);
+    }
+
+    private void HighlightMovableTiles()
+    {
+        GameTileTracker.HighlightTilesForCharacter(this);
+    }
+
+    private void ClearHighlights()
+    {
+        GameTileTracker.ClearHighlights();
+    }
+
+    private void EnableMovementInput()
+    {
+        GameTileTracker.HighlightTilesForCharacter(this);
+    }
+
+    private void DisableMovementInput()
+    {
+        GameTileTracker.ClearHighlights();
     }
 }
