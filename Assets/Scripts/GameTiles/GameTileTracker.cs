@@ -5,6 +5,8 @@ using UnityEngine;
 /// Script attached to the Tilemap by the Game Tile Manager
 /// Tracks tiles, pathfinding, and highlights for movement & actions
 /// </summary>
+/// 
+[DefaultExecutionOrder(-100)]
 public class GameTileTracker : MonoBehaviour
 {
     public static GameTileTracker Instance;
@@ -26,7 +28,6 @@ public class GameTileTracker : MonoBehaviour
             Instance = this;
         else
         {
-            Destroy(gameObject);
             return;
         }
 

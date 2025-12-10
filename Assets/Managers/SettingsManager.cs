@@ -67,10 +67,21 @@ public class SettingsManager : MonoBehaviour
     public void SetVolume(float volume)
     {
         if (audioMixer != null)
-            audioMixer.SetFloat("MasterVolume", Mathf.Log10(volume) * 20);
+        {
+            // If slider is at 0, mute hard
+            if (volume <= 0.0001f)
+            {
+                audioMixer.SetFloat("MasterVolume", -80f); // Unity near-silence
+            }
+            else
+            {
+                audioMixer.SetFloat("MasterVolume", Mathf.Log10(volume) * 20);
+            }
+        }
 
         PlayerPrefs.SetFloat("Volume", volume);
     }
+
 
     public void SetFullscreen(bool isFullscreen)
     {

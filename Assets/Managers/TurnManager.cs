@@ -1,18 +1,34 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 public class TurnManager : MonoBehaviour
 {
     public static TurnManager Instance;
 
-    [Header("Characters")]
-    public List<CharacterStateManager> allCharacters; // player + enemy characters
-    public CharacterStateManager enemyCharacter;      // single enemy
+    [Header("Player Prefabs")]
+    public List<CharacterStateManager> playerPrefabs;    // Assign character prefabs
+    public List<Transform> playerSpawnPoints;            // Empty GameObjects as spawn points
+
+    [Header("Enemy Prefab")]
+    public CharacterStateManager enemyPrefab;
+    public Transform enemySpawnPoint;
 
     [Header("UI")]
-    public List<GameObject> playerUIs;        // One panel per player character
-    public GameObject actionMenu;             // Shared action menu
-    public GameObject damagePopupPrefab;      // Prefab for floating damage numbers
+    public List<GameObject> playerUIs;                  // One panel per player character
+    public GameObject enemyUI;                           // Assign enemy UI panel
+    public GameObject actionMenu;                        // Shared action menu
+    public GameObject damagePopupPrefab;                 // Floating damage numbers
+
+    [Header("Tilemap")]
+    public Tilemap gridTilemap;                         // Assign your tilemap
+    public Vector3 zOffset = new Vector3(0f, 0f, 0.25f);
+
+    [HideInInspector]
+    public List<CharacterStateManager> allCharacters = new List<CharacterStateManager>();
+    [HideInInspector]
+    public CharacterStateManager enemyCharacter;
 
     private int currentTurnIndex = 0;
     private CharacterStateManager currentCharacter;
@@ -21,12 +37,75 @@ public class TurnManager : MonoBehaviour
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+
+        if (allCharacters == null) allCharacters = new List<CharacterStateManager>();
     }
 
-    private void Start()
+    private IEnumerator Start()
     {
+        // Wait until GameTileTracker exists
+        while (GameTileTracker.Instance == null)
+            yield return null;
+
+        // Spawn characters safely
+        SpawnCharactersAtAssignedPositions();
+
+        // Begin first turn
         BeginPlayerTurn();
     }
+
+    private void SpawnCharactersAtAssignedPositions()
+    {
+        allCharacters = new List<CharacterStateManager>();
+
+        // Spawn Players
+        for (int i = 0; i < playerPrefabs.Count; i++)
+        {
+            if (playerPrefabs[i] == null || i >= playerSpawnPoints.Count)
+            {
+                Debug.LogError($"Missing prefab or spawn point for player index {i}");
+                continue;
+            }
+
+            var player = Instantiate(playerPrefabs[i], playerSpawnPoints[i].position, Quaternion.identity);
+            SnapCharacterToTile(player);
+            allCharacters.Add(player);
+
+            Debug.Log($"Spawned player {player.name} at {player.transform.position}");
+        }
+
+        // Spawn Enemy
+        if (enemyPrefab != null && enemySpawnPoint != null)
+        {
+            enemyCharacter = Instantiate(enemyPrefab, enemySpawnPoint.position, Quaternion.identity);
+            SnapCharacterToTile(enemyCharacter);
+            Debug.Log($"Spawned enemy {enemyCharacter.name} at {enemyCharacter.transform.position}");
+        }
+    }
+
+   private void SnapCharacterToTile(CharacterStateManager character)
+{
+    if (character == null || GameTileTracker.Instance == null || gridTilemap == null) return;
+
+    Vector3Int cellPos = gridTilemap.WorldToCell(character.transform.position);
+    GameTile tile = GameTileTracker.Instance.GetTileAt(cellPos);
+
+    if (tile != null)
+    {
+        // Snap position
+        character.transform.position = tile.transform.position + zOffset;
+
+        // Set MoveDestination to this tile
+        character.MoveDestination = tile.CellPosition;
+        Debug.Log($"{character.name} snapped to tile at {tile.CellPosition}");
+    }
+    else
+    {
+        Debug.LogWarning($"{character.name} could not find a tile at {character.transform.position} (cell {cellPos})");
+        character.gameObject.SetActive(false); // optionally disable it
+    }
+}
+
 
     #region Player Turn
     public void BeginPlayerTurn()
@@ -34,55 +113,43 @@ public class TurnManager : MonoBehaviour
         currentTurnIndex = 0;
 
         // Hide enemy UI
-        if (enemyCharacter != null && enemyCharacter.CharacterUI != null)
-            enemyCharacter.CharacterUI.SetActive(false);
+        if (enemyUI != null)
+            enemyUI.SetActive(false);
 
-        // Hide all player UIs first
+        // Hide all player UIs
         foreach (var ui in playerUIs)
             ui.SetActive(false);
 
         ShowCurrentPlayerUI();
-        Debug.Log($"{currentCharacter.CharacterData.name}'s turn started (Player)");
     }
 
-
-    void ShowCurrentPlayerUI()
+    private void ShowCurrentPlayerUI()
     {
-        // Hide all character UIs
         foreach (var ui in playerUIs)
             ui.SetActive(false);
 
-        // Set current character
+        if (allCharacters.Count == 0) return;
+
         currentCharacter = allCharacters[currentTurnIndex];
 
         // Show only current character's UI
-        playerUIs[currentTurnIndex].SetActive(true);
+        if (currentTurnIndex < playerUIs.Count)
+            playerUIs[currentTurnIndex].SetActive(true);
 
-        // Show action menu for player input
         if (actionMenu != null)
             actionMenu.SetActive(true);
 
-        UpdateCharacterUI(currentCharacter);
+        UpdateCharacterUI(currentCharacter, playerUIs[currentTurnIndex]);
     }
 
-    void UpdateCharacterUI(CharacterStateManager character)
+    private void UpdateCharacterUI(CharacterStateManager character, GameObject uiPanel)
     {
-        if (character == null || character.CharacterData == null)
-        {
-            Debug.LogError("Character or CharacterData is null!");
+        if (character == null || character.CharacterData == null || uiPanel == null)
             return;
-        }
 
-        var ui = playerUIs.Count > currentTurnIndex ? playerUIs[currentTurnIndex] : null;
-        if (ui == null)
-        {
-            Debug.LogError("Player UI panel not assigned for index " + currentTurnIndex);
-            return;
-        }
-
-        var portrait = ui.transform.Find("Portrait")?.GetComponent<UnityEngine.UI.Image>();
-        var nameText = ui.transform.Find("NameText")?.GetComponent<TMPro.TMP_Text>();
-        var hpText = ui.transform.Find("HPText")?.GetComponent<TMPro.TMP_Text>();
+        var portrait = uiPanel.transform.Find("Portrait")?.GetComponent<UnityEngine.UI.Image>();
+        var nameText = uiPanel.transform.Find("NameText")?.GetComponent<TMPro.TMP_Text>();
+        var hpText = uiPanel.transform.Find("HPText")?.GetComponent<TMPro.TMP_Text>();
 
         if (portrait != null && character.CharacterData.CharacterSpriteRenderer != null)
             portrait.sprite = character.CharacterData.CharacterSpriteRenderer.sprite;
@@ -97,54 +164,79 @@ public class TurnManager : MonoBehaviour
         }
     }
 
+    private GameObject GetUIPanelForCharacter(CharacterStateManager character)
+    {
+        if (character == enemyCharacter)
+            return enemyUI;
+
+        int index = allCharacters.IndexOf(character);
+        if (index >= 0 && index < playerUIs.Count)
+            return playerUIs[index];
+
+        return null;
+    }
+
+    public void OnTileClicked(GameObject clickedTileObject)
+    {
+        if (clickedTileObject == null || currentCharacter == null)
+            return;
+
+        GameTile tile = clickedTileObject.GetComponent<GameTile>();
+        if (tile == null) return;
+
+        currentCharacter.transform.position = tile.transform.position + zOffset;
+        currentCharacter.MoveDestination = tile.CellPosition;
+
+        GameTileTracker.Instance.ClearHighlights();
+        EndMovementPhase(currentCharacter);
+    }
+
+
 
     public void OnMoveButton()
     {
-        if (currentCharacter.CharacterData.CharacterActive) return;
+        if (currentCharacter == null) return;
 
-        currentCharacter.CharacterData.CharacterActive = true;
-        // Enable movement input for this character
+        // Make sure character is active and snapped
+        if (!currentCharacter.CharacterData.CharacterActive)
+            currentCharacter.CharacterData.CharacterActive = true;
+
+        // Highlight tiles
         GameTileTracker.Instance.HighlightTilesForCharacter(currentCharacter);
-        Debug.Log($"{currentCharacter.CharacterData.name} can now move");
+        Debug.Log($"{currentCharacter.CharacterData.CharacterName} can now move");
     }
+
+
 
     public void ConfirmMove()
     {
         currentCharacter.CharacterData.CharacterActive = false;
         GameTileTracker.Instance.ClearHighlights();
-        Debug.Log($"{currentCharacter.CharacterData.name} finished movement");
+        EndMovementPhase(currentCharacter);
     }
 
     public void CancelMove()
     {
         currentCharacter.CharacterData.CharacterActive = false;
         GameTileTracker.Instance.ClearHighlights();
-        Debug.Log($"{currentCharacter.CharacterData.name} canceled movement");
+        EndMovementPhase(currentCharacter);
     }
 
     public void OnFightButton()
     {
         int damage = Random.Range(10, 20);
+        ApplyDamage(enemyCharacter, damage);
 
-        enemyCharacter.CharacterData.Health -= damage;
-        if (enemyCharacter.CharacterData.Health < 0) enemyCharacter.CharacterData.Health = 0;
-
-        ShowDamage(enemyCharacter.CharacterData, damage);
-        UpdateCharacterUI(enemyCharacter);
-
-        EndPlayerTurn();
+        EndActionPhase(currentCharacter);
     }
 
     public void OnWaitButton()
     {
-        Debug.Log($"{currentCharacter.CharacterData.name} chose WAIT");
-        EndPlayerTurn();
+        EndActionPhase(currentCharacter);
     }
 
-    void EndPlayerTurn()
+    private void EndPlayerTurn()
     {
-        playerUIs[currentTurnIndex].SetActive(true);
-
         currentTurnIndex++;
         if (currentTurnIndex >= allCharacters.Count)
             BeginEnemyTurn();
@@ -154,60 +246,45 @@ public class TurnManager : MonoBehaviour
     #endregion
 
     #region Enemy Turn
-    void BeginEnemyTurn()
+    private void BeginEnemyTurn()
     {
         currentCharacter = enemyCharacter;
 
         // Hide all player UIs
         foreach (var ui in playerUIs)
-        {
-            if (ui != null)
-                ui.SetActive(false);
-        }
+            ui.SetActive(false);
 
-        // Hide the shared action menu
         if (actionMenu != null)
             actionMenu.SetActive(false);
 
-        // No need to hide enemy UI if you don’t have one
-        // Just proceed with enemy AI actions
-        Debug.Log($"{enemyCharacter.CharacterData.CharacterName}'s turn started (Enemy)");
+        if (enemyUI != null)
+            enemyUI.SetActive(true);
 
+        Debug.Log($"{enemyCharacter.CharacterData.CharacterName}'s turn started (Enemy)");
         Invoke(nameof(EnemyMove), 1f);
     }
 
-
-
-    void EnemyMove()
+    private void EnemyMove()
     {
         GameTileTracker.Instance.HighlightTilesForCharacter(enemyCharacter);
-        // TODO: implement AI pathing
-        // Only clear highlights after movement is done
         Invoke(nameof(ClearEnemyHighlights), 1f);
     }
 
-    void ClearEnemyHighlights()
+    private void ClearEnemyHighlights()
     {
         GameTileTracker.Instance.ClearHighlights();
         EnemyAction();
     }
 
-
-    void EnemyAction()
+    private void EnemyAction()
     {
         var adjacentPlayers = GameTileTracker.Instance.GetAdjacentEnemies(enemyCharacter);
 
         if (adjacentPlayers.Count > 0)
         {
             var target = adjacentPlayers[Random.Range(0, adjacentPlayers.Count)];
-            var targetData = target.GetComponent<CharacterStateManager>().CharacterData;
-
-            int damage = Random.Range(5, 15);
-            targetData.Health -= damage;
-            if (targetData.Health < 0) targetData.Health = 0;
-
-            ShowDamage(targetData, damage);
-            Debug.Log($"{enemyCharacter.CharacterData.name} attacked {targetData.name}");
+            ApplyDamage(target.GetComponent<CharacterStateManager>(), Random.Range(5, 15));
+            Debug.Log($"{enemyCharacter.CharacterData.CharacterName} attacked {target.GetComponent<CharacterStateManager>().CharacterData.CharacterName}");
         }
 
         Invoke(nameof(EndEnemyTurn), 1f);
@@ -215,13 +292,12 @@ public class TurnManager : MonoBehaviour
 
     public void EndEnemyTurn()
     {
-        Debug.Log($"{enemyCharacter.CharacterData.name}'s turn ended");
         BeginPlayerTurn();
     }
     #endregion
 
-    #region Damage Popup
-    void ShowDamage(CharacterGameData target, int damage)
+    #region Damage
+    private void ShowDamage(CharacterGameData target, int damage)
     {
         if (damagePopupPrefab == null || target == null) return;
 
@@ -229,19 +305,35 @@ public class TurnManager : MonoBehaviour
         var dmgScript = popup.GetComponent<DamagePopup>();
         if (dmgScript != null) dmgScript.SetDamage(damage);
     }
+
+    private void ApplyDamage(CharacterStateManager character, int damage)
+    {
+        if (character == null || character.CharacterData == null) return;
+
+        character.CharacterData.Health -= damage;
+        if (character.CharacterData.Health < 0)
+            character.CharacterData.Health = 0;
+
+        ShowDamage(character.CharacterData, damage);
+
+        // Update UI immediately
+        GameObject uiPanel = GetUIPanelForCharacter(character);
+        UpdateCharacterUI(character, uiPanel);
+    }
     #endregion
 
+    #region Phase Methods
     public void EndMovementPhase(CharacterStateManager character)
     {
-        Debug.Log($"{character.CharacterData.CharacterName} finished moving. Switching to action phase...");
-        // Here you could enable the action menu, or call a method on the character
-        character.SetActionPhase();
+        Debug.Log($"{character.CharacterData.CharacterName} finished moving. Action phase ready.");
+        if (actionMenu != null)
+            actionMenu.SetActive(true);
     }
 
     public void EndActionPhase(CharacterStateManager character)
     {
         Debug.Log($"{character.CharacterData.CharacterName} finished action. Ending turn...");
-        character.EndTurn();
+        EndPlayerTurn();
     }
-
+    #endregion
 }

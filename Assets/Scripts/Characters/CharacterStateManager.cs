@@ -7,6 +7,7 @@ public class CharacterStateManager : MonoBehaviour
 
     [Header("UI")]
     public GameObject CharacterUI; // assign this in the Inspector
+    public CharacterUISettings uiSettings;
 
     protected CharacterBaseState CharacterState;
     public CharacterIdleState Idle = new CharacterIdleState();
@@ -23,16 +24,21 @@ public class CharacterStateManager : MonoBehaviour
 
     protected virtual void Start()
     {
-        GameTileTracker = GameObject.FindGameObjectWithTag(Constants.TilemapTag)
-            .GetComponent<GameTileTracker>();
+        if (GameTileTracker.Instance == null)
+        {
+            Debug.LogError("GameTileTracker instance not found!");
+            return; // prevent further execution
+        }
+
+        GameTileTracker = GameTileTracker.Instance;
         CharacterData = GetComponent<CharacterGameData>();
         CharacterState = Idle;
         CharacterState.Start(this);
 
-        // Hide UI at start; TurnManager will show only active character's UI
         if (CharacterUI != null)
             CharacterUI.SetActive(false);
     }
+
 
     void Update()
     {

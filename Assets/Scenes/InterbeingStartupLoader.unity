@@ -606,9 +606,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SceneFader
   logoImage: {fileID: 1851888844}
-  fadeInDuration: 3
+  fadeInDuration: 5
   holdDuration: 1
-  fadeOutDuration: 3
+  fadeOutDuration: 1
   blackBackground: {fileID: 330662971}
   nextSceneName: InterbeingMainMenu
 --- !u!1 &1851888842

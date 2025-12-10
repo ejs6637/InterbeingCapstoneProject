@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0d2ccbfaaea479f43992bb09d0dffa54, type: 3}
+  m_Name: OC1UISettings
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterUISettings
+  CharacterUIPanel: {fileID: 728265400016633914, guid: 2fe33d7d075818b4ba41f17b5c3ab995, type: 3}
+  ActionMenu: {fileID: 728265400016633914, guid: 2fe33d7d075818b4ba41f17b5c3ab995, type: 3}
+  DamagePopupPrefab: {fileID: 7443165805158237947, guid: 1ff8dfd065bde6b4c882f16b4d0b9187, type: 3}

@@ -5,15 +5,14 @@ public class DialogueController : MonoBehaviour
     public DialogueUI dialogueUI;
     public DialogueLine[] lines;
 
-    private int currentLineIndex = -1;
+    public System.Action OnConversationComplete;
 
-    void Start()
-    {
-        StartConversation();
-    }
+    private int currentLineIndex = -1;
+    private bool canContinue = false;
 
     public void StartConversation()
     {
+        currentLineIndex = -1;
         dialogueUI.StartDialogue();
         ShowNextLine();
     }
@@ -31,20 +30,13 @@ public class DialogueController : MonoBehaviour
         DialogueLine line = lines[currentLineIndex];
         dialogueUI.ShowDialogue(line.speakerName, line.text, line.portrait, line.isLeftSide);
 
-        dialogueUI.OnLineFinished = () =>
-        {
-            // Enable player input to continue once typing is done
-            canContinue = true;
-        };
-
+        dialogueUI.OnLineFinished = () => canContinue = true;
         canContinue = false;
     }
 
-    private bool canContinue = false;
-
     void Update()
     {
-        if (Input.GetKeyDown(KeyCode.Space))
+        if (Input.GetMouseButtonDown(0))
         {
             if (canContinue)
                 ShowNextLine();
@@ -53,11 +45,9 @@ public class DialogueController : MonoBehaviour
         }
     }
 
-    void EndConversation()
+    private void EndConversation()
     {
         dialogueUI.EndDialogue();
-        Debug.Log("Dialogue finished!");
-        // Trigger gameplay UI now if needed
-        // TurnManager.Instance.BeginPlayerTurn();
+        OnConversationComplete?.Invoke();
     }
 }

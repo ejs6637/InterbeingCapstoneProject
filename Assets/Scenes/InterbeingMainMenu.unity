@@ -468,7 +468,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SceneTransition
   fadeImage: {fileID: 1149073360}
-  fadeDuration: 3
+  fadeDuration: 5
 --- !u!4 &85644765
 Transform:
   m_ObjectHideFlags: 0
@@ -4288,7 +4288,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: 2.151703, y: 0}
+  m_AnchoredPosition: {x: 2.151703, y: 60}
   m_SizeDelta: {x: -4.3033, y: 28}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &1407121041
